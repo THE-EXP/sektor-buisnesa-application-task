@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Paginated Template</title>
+    <script src="https://unpkg.com/htmx.org/dist/htmx.min.js"></script>
+  </head>
+  <body>
+    <div id="paginationContainer" hx-get="/api/pagination" hx-swap="innerHTML" hx-trigger="load">
+        Current Page: <span id="currentPage"></span>
+        Total Pages: <span id="totalPages"></span>
+      </div>
+
+      <ul id="dataList" hx-get="/api/data" hx-trigger="load" hx-swap="outerHTML">
+        <li>
+          <!-- Display your data here -->
+          <span></span>
+        </li>
+      </ul>
+    </div>
+
+    <script>
+      // Example HTMX usage
+      document.addEventListener('htmx:afterSwap', function(event) {
+        if (event.target.id === 'paginationContainer') {
+          // Update page info
+          const currentPage = event.detail.target.querySelector('#currentPage').innerText;
+          const totalPages = event.detail.target.querySelector('#totalPages').innerText;
+          console.log('Current Page:', currentPage);
+          console.log('Total Pages:', totalPages);
+        } else if (event.target.id === 'dataList') {
+          // Process and display data
+          const dataList = event.detail.target.querySelectorAll('li span');
+          dataList.forEach(function(data, index) {
+            console.log('Data', index + 1, ':', data.innerText);
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

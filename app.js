@@ -51,12 +51,15 @@ const Model = db.define('user', {
 });
 Model.sync({alter: true});
 
+//generate json web token
+
+
 app.post('/user/login', (req, res) => {
   login(req, res)// Login logic(JWT)
 });
 
 app.post('/user/register', (req, res) => {
-  register(req, res); // Registration logic (jwt)
+  register(req, res); // Registration logic (jwt?)
 });
 
 app.put('/profile/:id', (req, res) => {
@@ -74,3 +77,19 @@ app.get('/profiles', (req, res) => {
 app.listen(process.env.MAIN_PORT || 8080, () => {
     console.log(`Server listening on port ${process.env.MAIN_PORT || 8080}`);
 })
+
+async function register(req, res) {
+  var firstname = req.body.firstname;
+  var email = req.body.email;
+  var password = req.body.password;
+  // check if any or multiple of the inputs are missing
+  if (!firstname || !email || !password) {
+    res.status(400).send(`Fill in all the missing fields\nfirstname: ${!!firstname}\nemail: ${!!email}\npassword: ${!!password}\n if any of the above say false, please fill the appropriate fields in`);
+  } else {
+    var pwdsalt = await bcrypt.genSalt();
+    var pwdhash = await bcrypt.hash(password, pwdsalt);
+    var user = await Model.create({firstname: firstname, surname: surname, email: email, gender: gender, pwdhash: pwdhash, pwdsalt: pwdsalt});
+    user.save();
+    res.status(201).json({result: `OK`, msg: `User succesfully registered!`});
+  }
+}
