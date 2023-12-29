@@ -1,91 +1,57 @@
 doctype html
 html
   head
-    title Navigation Template
-    meta(name='viewport', content='width=device-width, initial-scale=1.0') // Add the meta tag for viewport
-
+    title My Page
     style.
-      .container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
       .pagination {
         display: flex;
-        align-items: center;
-        justify-content: center; /* Center align the paginator */
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        margin-top: 10px; /* Add margin-top to separate the item holder and paginator */
-      }
-      .pagination li {
-        margin: 0 5px;
-      }
-      .pagination li a {
-        display: inline-block;
-        padding: 5px 10px;
-        background-color: #f8f8f8;
-        color: #555;
-        text-decoration: none;
-        border-radius: 5px;
-      }
-      .pagination li a:hover {
-        background-color: #ccc;
-      }
-      .pagination li.active a {
-        background-color: #555;
-        color: #f8f8f8;
-      }
-      .pagination .arrow {
-        padding: 5px;
-        background-color: #f8f8f8;
-        color: #555;
-        text-decoration: none;
-        border-radius: 5px;
-        pointer-events: none; /* Disable pointer events for disabled arrows */
-        opacity: 0.5; /* Reduce opacity for disabled arrows */
-      }
-      .pagination .arrow:hover {
-        background-color: #f8f8f8;
-      }
-      .pagination .arrow.disabled:hover {
-        background-color: #f8f8f8;
-        cursor: not-allowed; /* Show not-allowed cursor for disabled arrows */
-      }
-      .item-holder {
-        background-color: #f8f8f8;
-        padding: 10px;
-        margin-bottom: 10px;
-        border-radius: 5px;
-        text-align: center; /* Center the content within the item holder */
-      }
-      .pagination-container {
-        display: flex;
         justify-content: center;
+        align-items: center;
+        margin-top: 10px;
+      }
+      
+      .page-link,
+      .prev-button,
+      .next-button,
+      .profile-link {
+        margin: 0 5px;
+        padding: 5px 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        text-decoration: none;
+        color: #333;
+        cursor: pointer;
+        background-color: transparent;
+      }
+      
+      .page-link.current-page {
+        font-weight: bold;
+      }
+      
+      a.page-link:hover,
+      .prev-button:hover,
+      .next-button:hover,
+      .profile-link:hover {
+        background-color: #eee;
+      }
+      
+      .list-item {
+        margin-bottom: 10px;
       }
   body
-    .container
-      .item-holder
-        // Add your dynamic item content here
-        p= `Current Page: ${currentPage}`
+    h1 My Page
+    h2 Current Page: #{paginatedData.currentPage}
+    div.list-container
+      each item in paginatedData.data
+        div.list-item
+          a.profile-link(href=`/profile/${item.id}`)= item.name
 
-      .pagination-container
-        ul.pagination
-          li
-            - if (currentPage === 1)
-              a.arrow.disabled(href="#") &lt;
-            - else
-              a.arrow(href=`/?page=${currentPage - 1}`) &lt;
-          - for (let i = 1; i <= pageCount; i++)
-            - if (i === currentPage)
-              li
-                a.active(href=`/?page=${i}`) #{i}
-            - else
-              li
-                a(href=`/?page=${i}`) #{i}
-          li
-            - if (currentPage === pageCount)
-              a.arrow.disabled(href="#") &gt;
-            - else
-              a.arrow(href=`/?page=${currentPage + 1}`) &gt;
+    .pagination
+      button.prev-button(onclick=`window.location.href='/?page=${paginatedData.currentPage - 1}'`) Previous
+      div.page-list
+        each page in Array.from({ length: paginatedData.totalPages }, (_, i) => i + 1)
+          if page === paginatedData.currentPage
+            span.page-link.current-page= page
+          else
+            button.page-link(onclick=`window.location.href='/?page=${page}'`)= page
+      button.next-button(onclick=`window.location.href='/?page=${paginatedData.currentPage + 1}'`) Next

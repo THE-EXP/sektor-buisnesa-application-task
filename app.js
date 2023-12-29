@@ -13,7 +13,7 @@ app.use(express.urlencoded({extended: true}));
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
 
-//logic below checks for .env file, if .env file has db credentials, and if it has a 'secret' value assigned, and if not, generates one
+//logic below checks for .env file, if .env file has mysql credentials, and if it has a 'secret' value assigned, and if not, generates one
 if (!fs.existsSync('.env')) {
   throw new Error('No environment variables loaded, please create a .env file in the root folder(i.e. in the same folder as thу server)');
 }
@@ -22,18 +22,18 @@ if (!process.env.DBPWD || !process.env.DBUSER) {
 }
 const secret = process.env.SECRET || crypto.randomBytes(32).toString('hex'); //required for jwt token validation
 
-const db = new sql('users', process.env.DBUSER, process.env.DBPWD, {
+const mysql = new sql('users', process.env.DBUSER, process.env.DBPWD, {
     host: 'localhost',
     dialect: 'mysql',
 });
 
-db.authenticate().then(() => {
+mysql.authenticate().then(() => {
     console.log(`Connection has been established successfully`);
 }).catch((error) => {
     console.error(`Unable to connect to the database, exited with:\n${error}`);
 });
 
-const Model = db.define('user', {
+const Model = mysql.define('user', {
     id: {
         type: sql.INTEGER,
         primaryKey: true,
