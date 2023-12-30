@@ -1,0 +1,36 @@
+doctype html
+html
+  head
+    title User Profile
+    meta(name='viewport', content='width=device-width, initial-scale=1')
+    style.
+      .profile-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      .profile-photo {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 10px;
+      }
+
+      .profile-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+  body
+    .profile-container
+      img.profile-photo(src=`${user.profilePhoto || 'pictures/default.png'}`, alt='Profile Photo')
+      .profile-info
+        p Name: #{user.name}
+        p Surname: #{user.surname}
+        p Age: #{user.age}
+        p Email: #{user.email}
+        p Registration Date: #{user.registrationDate}

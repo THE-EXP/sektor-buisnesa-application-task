@@ -45,7 +45,8 @@ const Model = mysql.define('user', {
     pwdhash: {type: sql.STRING, allowNull: false},
     pwdsalt: {type: sql.STRING, allowNull: false},
     gender: {type: sql.BOOLEAN, allowNull: false}, //* True = Male, False = Female, a bit more efficient db usage
-    registration_date: {type: sql.DATE, allowNull: false, defaultValue: sql.NOW}
+    registration_date: {type: sql.DATE, allowNull: false, defaultValue: sql.NOW},
+    profile_picture: {type: sql.STRING, allowNull: false, defaultValue: 'default.png'},
 }, {
   tableName: 'users'
 });

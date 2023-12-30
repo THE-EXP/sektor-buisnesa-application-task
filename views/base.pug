@@ -2,6 +2,7 @@ doctype html
 html
   head
     title My Page
+    meta(name='viewport', content='width=device-width, initial-scale=1')
     style.
       .pagination {
         display: flex;
@@ -28,11 +29,13 @@ html
         font-weight: bold;
       }
       
-      a.page-link:hover,
-      .prev-button:hover,
-      .next-button:hover,
+      a.page-link.disabled,
+      .prev-button.disabled,
+      .next-button.disabled,
       .profile-link:hover {
-        background-color: #eee;
+        pointer-events: none;
+        color: #999;
+        cursor: default;
       }
       
       .list-item {
@@ -47,11 +50,11 @@ html
           a.profile-link(href=`/profile/${item.id}`)= item.name
 
     .pagination
-      button.prev-button(onclick=`window.location.href='/?page=${paginatedData.currentPage - 1}'`) Previous
+      a.prev-button(class=`prev-button ${paginatedData.currentPage === 1 ? 'disabled' : ''}`, href=`${paginatedData.currentPage === 1 ? '#' : `/?page=${paginatedData.currentPage - 1}`}`) Previous
       div.page-list
         each page in Array.from({ length: paginatedData.totalPages }, (_, i) => i + 1)
           if page === paginatedData.currentPage
             span.page-link.current-page= page
           else
-            button.page-link(onclick=`window.location.href='/?page=${page}'`)= page
-      button.next-button(onclick=`window.location.href='/?page=${paginatedData.currentPage + 1}'`) Next
+            a.page-link(href=`/?page=${page}`)= page
+      a.next-button(class=`next-button ${paginatedData.currentPage === paginatedData.totalPages ? 'disabled' : ''}`, href=`${paginatedData.currentPage === paginatedData.totalPages ? '#' : `/?page=${paginatedData.currentPage + 1}`}`) Next

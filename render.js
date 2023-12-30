@@ -6,8 +6,8 @@ const app = express();
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
 
-app.get('/', (req, res) => {
-  const data = [//array of 100 items containing key name like 'item x' and key id with data containing x, where x is the order number of the element
+app.get('/profiles', (req, res) => {
+  const data = [
     { name: 'item 1', id: 1 },
     { name: 'item 2', id: 2 },
     { name: 'item 3', id: 3 },
@@ -52,7 +52,7 @@ app.get('/', (req, res) => {
   ];
 
   const page = parseInt(req.query.page) || 1;
-  const perPage = 5; // Number of items per page
+  const perPage = 10; // Number of items per page
   const paginatedData = paginate(data, page, perPage);
   console.log(paginatedData);
 
@@ -62,6 +62,12 @@ app.get('/', (req, res) => {
   const previousPage = paginatedData.currentPage - 1;
 
   res.render('base', { paginatedData, hasNextPages, hasPreviousPages, nextPage, previousPage });
+});
+
+app.get('/profile/:id', (req, res) => {
+  var users = [{name: 'John', surname: 'Doe', age: 30, email: 'jJ7wK@example.com', registrationdate: Date.now()}, {name: 'Jane', surname: 'Doe', age: 28, email: 'jJ8wK@example.com', registrationdate: Date.now()}];
+  var user = users[req.params.id-1]
+  res.render('profile', { user });
 });
 
 app.listen(3000, () => {
