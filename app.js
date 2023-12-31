@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
+const cp = require('cookie-parser');
 require('dotenv').config('./');
 const app = express();
 
@@ -44,7 +45,7 @@ const Model = mysql.define('user', {
     surname: {type: sql.STRING, allowNull: false},
     pwdhash: {type: sql.STRING, allowNull: false},
     pwdsalt: {type: sql.STRING, allowNull: false},
-    gender: {type: sql.BOOLEAN, allowNull: false}, //* True = Male, False = Female, a bit more efficient db usage
+    gender: {type: sql.CHAR, allowNull: false}, //* M = Male, F = Female, U = Unspecified/Unknown
     registration_date: {type: sql.DATE, allowNull: false, defaultValue: sql.NOW},
     profile_picture: {type: sql.STRING, allowNull: false, defaultValue: 'default.png'},
 }, {
@@ -56,15 +57,15 @@ Model.sync({alter: true});
 
 
 app.post('/user/login', (req, res) => {
-  login(req, res)// Login logic(JWT)
+  login(req, res)// Login logic(JWT?)
 });
 
 app.post('/user/register', (req, res) => {
-  register(req, res); // Registration logic (jwt?)
+  register(req, res); // Registration logic (JWT?)
 });
 
 app.put('/profile/:id', (req, res) => {
-  editUser(req, res)// Edit logic
+  editUser(req, res)// Edit logic(require JWT to confirm user?)
 });
 
 app.get('/profile/:id', (req, res) => {
@@ -80,17 +81,17 @@ app.listen(process.env.MAIN_PORT || 8080, () => {
 })
 
 async function register(req, res) {
-  var firstname = req.body.firstname;
-  var email = req.body.email;
-  var password = req.body.password;
-  // check if any or multiple of the inputs are missing
+  const { firstname, email, password } = req.body;
+
   if (!firstname || !email || !password) {
-    res.status(400).send(`Fill in all the missing fields\nfirstname: ${!!firstname}\nemail: ${!!email}\npassword: ${!!password}\n if any of the above say false, please fill the appropriate fields in`);
+    res.status(400).send('Fill in all the missing fields');
   } else {
-    var pwdsalt = await bcrypt.genSalt();
-    var pwdhash = await bcrypt.hash(password, pwdsalt);
-    var user = await Model.create({firstname: firstname, surname: surname, email: email, gender: gender, pwdhash: pwdhash, pwdsalt: pwdsalt});
+    const pwdsalt = await bcrypt.genSalt();
+    const pwdhash = await bcrypt.hash(password, pwdsalt);
+    const user = await Model.create({ firstname, email, pwdhash, pwdsalt });
     user.save();
-    res.status(201).json({result: `OK`, msg: `User succesfully registered!`});
+    res.status(201).json({ result: 'OK', msg: 'User successfully registered!' });
   }
 }
+
+//asynchronous function to generate jwt access/refresh token pair using RS256
