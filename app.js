@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const sequelize = require('sequelize');
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const cp = require('cookie-parser');
 const multer = require('multer');
@@ -11,21 +10,22 @@ const upload = multer({dest: './pictures/'});
 require('dotenv').config('./');
 const app = express();
 
-//configure multer to upload to ./pictures/ and check if the file is actually an image
-app.use(cp());
 app.use(upload.single('file'));
 app.use(express.urlencoded({extended: true}));
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
+app.use(cp());
 
 //logic below checks for .env file, if .env file has mysql credentials, and if it has a 'secret' value assigned, and if not, generates one
 if (!fs.existsSync('.env')) {
   throw new Error('No environment variables loaded, please create a .env file in the root folder(i.e. in the same folder as thу server)');
 }
 if (!process.env.DBPWD || !process.env.DBUSER) {
-  throw new Error('No database credentials stored, please add them to the .env file (DBUSER and DBPWD keys, plaintext)');
+  throw new Error('No database credentials stored, please add them to the .env file (DBUSER and DBPWD keys, plaintext), refresh and access secret values are not required, as they are generated once on-the-fly, be wary that this will happen every time server restarts!');
 }
-const secret = process.env.SECRET || crypto.randomBytes(32).toString('hex'); //required for jwt token validation
+const access_secret = process.env.ACCESS_SECRET || require('crypto').randomBytes(32).toString('hex'); //required for jwt token validation/creation
+const refresh_secret = process.env.REFRESH_SECRET || require('crypto').randomBytes(32).toString('hex');
+//console.log(`Random jwt: ${jwt.sign({ id: `random`}, secret)}`);
 
 const mysql = new sequelize('users', process.env.DBUSER, process.env.DBPWD, {
     host: 'localhost',
@@ -88,7 +88,11 @@ app.get('/profiles', (req, res) => {
   showAll(req, res); // showAll logic, how to make pagination work in this? use paginate-array??, JSON response
 });
 
-app.listen(process.env.MAIN_PORT || 8080, () => {
+app.get('/refresh', (req, res) => {
+  refresh(req, res); // Refresh access token, generate new refresh token and send both back to client
+});
+
+app.listen(process.env.MAIN_PORT || 80, () => {
     console.log(`Server listening on port ${process.env.MAIN_PORT || 8080}`);
 })
 
@@ -97,11 +101,14 @@ async function register(req, res) {
   const firstname = req.body.firstname;
   const email = req.body.email;
   const password = req.body.password; 
-
+  const exists = await usr.findAll({where: {email: email}})
   if (!firstname || !email || !password) {
     console.log(firstname, email, password);
     res.status(400).send('Fill in all the missing fields');
     return;
+  }
+  if (exists) {
+    res.status(409).json({ ok: false, msg: 'Such email already exists!' });
   }
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(password, salt);
@@ -120,9 +127,12 @@ async function login(req, res){
   switch (await bcrypt.compare(password, user.pwdhash)) {
     case true:
       console.log(`User ${user.id} logged in`);
+      const access = jwt.sign({ id: user.id }, access_secret);
+      const refresh = jwt.sign({ id: user.id }, refresh_secret);
       break;
     case false:
       console.log(`User ${user.id} failed to log in, wrong password`);
+      res.status(406)
   }
 }
 
