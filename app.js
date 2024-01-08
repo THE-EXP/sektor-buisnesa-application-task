@@ -134,7 +134,7 @@ async function showAll(req, res) {
     req.query.orderby = 'ASC'; //assume ascending order by default(oldest first)
   }
   const offset = (req.query.page - 1) * 10;
-  const users = await mysql.query(`SELECT * FROM users.users ORDER BY registration_date ${req.query.orderby.toUpperCase()} LIMIT 10 OFFSET ${offset}`, {type: sequelize.QueryTypes.SELECT});
+  const users = await usr.findAll({ limit: 10, offset: offset, order: [['registration_date', req.query.orderby.toUpperCase()]] });
   res.status(200).json({ ok: true, result: users});
 }
 
@@ -142,7 +142,7 @@ async function showOne(req, res) {
   const id = req.params.id;
   const user = await usr.findOne({where: {id}});
   if (!user) {
-    res.status(404).send('User not found');
+    res.status(404).json({ ok: false, msg: 'User not found' });
     return;
   }
   const user_safe = {
