@@ -8,7 +8,6 @@ const bcrypt = require('bcrypt');
 const cp = require('cookie-parser');
 const multer = require('multer');
 const upload = multer({dest: './pictures/'});
-const paginate = require('paginate-array');
 require('dotenv').config('./');
 const app = express();
 
@@ -40,7 +39,7 @@ mysql.authenticate().then(() => {
     throw error;
 });
 
-const Model = mysql.define('user', {
+const usr = mysql.define('user', {
     id: {
         type: sequelize.INTEGER,
         primaryKey: true,
@@ -57,7 +56,17 @@ const Model = mysql.define('user', {
 }, {
   tableName: 'users'
 });
-Model.sync({alter: true});
+const token = mysql.define('token', {
+  id: {
+    type: sequelize.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  atoken: {type: sequelize.STRING, allowNull: false},
+  rtoken: {type: sequelize.STRING, allowNull: false}
+})
+usr.sync();
+token.sync();
 
 app.post('/user/login', (req, res) => {
   login(req, res); // Login logic(JWT? How to maintain?!) 
@@ -96,7 +105,7 @@ async function register(req, res) {
   }
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(password, salt);
-    const user = await Model.create({ firstname, email, pwdhash: hash, pwdsalt: salt });
+    const user = await usr.create({ firstname, email, pwdhash: hash, pwdsalt: salt });
     await user.save();
     res.status(201).cookie('hashpwd', hash, {maxAge: 86400, httpOnly: true, secure: true}).json({ result: 'OK', msg: 'User successfully registered!' });
 }
@@ -105,7 +114,7 @@ async function login(req, res){
   // TODO: add JWT to this crap, for now just check password
   const email = req.body.email;
   const password = req.body.password;
-  const user = await Model.findOne({where: {email: email}});
+  const user = await usr.findOne({where: {email: email}});
   console.log(user);
   //const hashedpwd = req.cookies.hashpwd;
   switch (await bcrypt.compare(password, user.pwdhash)) {
@@ -127,4 +136,23 @@ async function showAll(req, res) {
   const offset = (req.query.page - 1) * 10;
   const users = await mysql.query(`SELECT * FROM users.users ORDER BY registration_date ${req.query.orderby.toUpperCase()} LIMIT 10 OFFSET ${offset}`, {type: sequelize.QueryTypes.SELECT});
   res.status(200).json({ ok: true, result: users});
+}
+
+async function showOne(req, res) {
+  const id = req.params.id;
+  const user = await usr.findOne({where: {id}});
+  if (!user) {
+    res.status(404).send('User not found');
+    return;
+  }
+  const user_safe = {
+    id: user.id,
+    firstname: user.firstname,
+    email: user.email,
+    surname: user.surname,
+    gender: user.gender,
+    registration_date: user.registration_date,
+    profile_picture: user.profile_picture
+  };
+  res.status(200).json({ ok: true, result: user_safe });
 }
