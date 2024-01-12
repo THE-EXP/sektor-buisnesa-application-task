@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const sequelize = require('sequelize');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const cp = require('cookie-parser');
 const multer = require('multer');
@@ -23,9 +24,7 @@ if (!fs.existsSync('.env')) {
 if (!process.env.DBPWD || !process.env.DBUSER) {
   throw new Error('No database credentials stored, please add them to the .env file (DBUSER and DBPWD keys, plaintext), refresh and access secret values are not required, as they are generated once on-the-fly, be wary that this will happen every time server restarts!');
 }
-const access_secret = process.env.ACCESS_SECRET || require('crypto').randomBytes(32).toString('hex'); //required for jwt token validation/creation
-const refresh_secret = process.env.REFRESH_SECRET || require('crypto').randomBytes(32).toString('hex');
-//console.log(`Random jwt: ${jwt.sign({ id: `random`}, secret)}`);
+const access_secret = process.env.SECRET || crypto.randomBytes(32).toString('hex'); //required for jwt token validation/creation
 
 const mysql = new sequelize('users', process.env.DBUSER, process.env.DBPWD, {
     host: 'localhost',
@@ -53,20 +52,12 @@ const usr = mysql.define('user', {
     gender: {type: sequelize.CHAR, allowNull: false, defaultValue: 'U'}, //* M = Male, F = Female, U = Unspecified
     registration_date: {type: sequelize.DATE, allowNull: false, defaultValue: sequelize.NOW},
     profile_picture: {type: sequelize.STRING, allowNull: false, defaultValue: './pictures/default.png'},
+    token: {type: sequelize.STRING, allowNull: false},
+    token_random: {type: sequelize.STRING, allowNull: false},
 }, {
   tableName: 'users'
 });
-const token = mysql.define('token', {
-  id: {
-    type: sequelize.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  atoken: {type: sequelize.STRING, allowNull: false},
-  rtoken: {type: sequelize.STRING, allowNull: false}
-})
-usr.sync();
-token.sync();
+usr.sync({ alter: true });
 
 app.post('/user/login', (req, res) => {
   login(req, res); // Login logic(JWT? How to maintain?!) 
@@ -88,10 +79,6 @@ app.get('/profiles', (req, res) => {
   showAll(req, res); // showAll logic, how to make pagination work in this? use paginate-array??, JSON response
 });
 
-app.get('/refresh', (req, res) => {
-  refresh(req, res); // Refresh access token, generate new refresh token and send both back to client
-});
-
 app.listen(process.env.MAIN_PORT || 80, () => {
     console.log(`Server listening on port ${process.env.MAIN_PORT || 8080}`);
 })
@@ -101,38 +88,53 @@ async function register(req, res) {
   const firstname = req.body.firstname;
   const email = req.body.email;
   const password = req.body.password; 
-  const exists = await usr.findAll({where: {email: email}})
+  const exists = await usr.findOne({where: {email: email}});
   if (!firstname || !email || !password) {
     console.log(firstname, email, password);
     res.status(400).send('Fill in all the missing fields');
     return;
   }
-  if (exists) {
+  if (exists != null) {
     res.status(409).json({ ok: false, msg: 'Such email already exists!' });
+    return;
   }
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(password, salt);
-    const user = await usr.create({ firstname, email, pwdhash: hash, pwdsalt: salt });
+    const random = crypto.randomBytes(8).toString('hex');
+    const refresh = jwt.sign({random}, refresh_secret, {expiresIn: '5d'});
+    const access = jwt.sign({random}, access_secret, {expiresIn: '1d'});
+    const user = await usr.create({ firstname, email, pwdhash: hash, pwdsalt: salt, atoken: access, rtoken: refresh, token_random: random });
     await user.save();
-    res.status(201).cookie('hashpwd', hash, {maxAge: 86400, httpOnly: true, secure: true}).json({ result: 'OK', msg: 'User successfully registered!' });
+    res.status(201).cookie('jwt', refresh, {maxAge: 86400, httpOnly: true, secure: true}).json({ ok: true, token: access, expiresIn: 86400});
 }
 
 async function login(req, res){
   // TODO: add JWT to this crap, for now just check password
+  const access = req.cookies.jwt;
+  if (access != null) {
+    res.status(409).json({ok: false, msg: 'Already logged in!', token: access});
+    return;
+  }
+  const return_url = req.query.return;
   const email = req.body.email;
   const password = req.body.password;
   const user = await usr.findOne({where: {email: email}});
-  console.log(user);
-  //const hashedpwd = req.cookies.hashpwd;
+  console.log(user.id);
+  if (!user) {
+    res.status(404).json({ ok: false, msg: 'User does not exist' });
+    return;
+  }
   switch (await bcrypt.compare(password, user.pwdhash)) {
     case true:
+      const random = crypto.randomBytes(8).toString('hex');
+      const access = jwt.sign({ random }, access_secret); 
+      usr.update({atoken: access, random}, {where: {id: user.id}}).then((data)=>{console.log(data);}).catch((err)=>{console.log(err);});
       console.log(`User ${user.id} logged in`);
-      const access = jwt.sign({ id: user.id }, access_secret);
-      const refresh = jwt.sign({ id: user.id }, refresh_secret);
+      res.status(200).cookie('jwt', access, {maxAge: 86400, httpOnly: true, secure: true}).redirect(return_url || '/profiles');
       break;
     case false:
       console.log(`User ${user.id} failed to log in, wrong password`);
-      res.status(406)
+      res.status(406).json({ok: false, msg: 'Email or password is incorrect'});
   }
 }
 
