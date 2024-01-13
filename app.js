@@ -22,7 +22,7 @@ if (!fs.existsSync('.env')) {
   throw new Error('No environment variables loaded, please create a .env file in the root folder(i.e. in the same folder as thу server)');
 }
 if (!process.env.DBPWD || !process.env.DBUSER) {
-  throw new Error('No database credentials stored, please add them to the .env file (DBUSER and DBPWD keys, plaintext), refresh and access secret values are not required, as they are generated once on-the-fly, be wary that this will happen every time server restarts!');
+  throw new Error('No database credentials stored, please add them to the .env file (DBUSER and DBPWD keys, in plaintext), refresh and access secret values are not required, as they are generated once on-the-fly, be wary that this will happen every time server restarts!');
 }
 const access_secret = process.env.SECRET || crypto.randomBytes(32).toString('hex'); //required for jwt token validation/creation
 
