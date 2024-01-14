@@ -53,7 +53,7 @@ const usr = mysql.define('user', {
     registration_date: {type: sequelize.DATE, allowNull: false, defaultValue: sequelize.NOW},
     profile_picture: {type: sequelize.STRING, allowNull: false, defaultValue: './pictures/default.png'},
     token: {type: sequelize.STRING, allowNull: false},
-    token_random: {type: sequelize.STRING, allowNull: false},
+    random: {type: sequelize.STRING, allowNull: false, defaultValue: crypto.randomBytes(8).toString('hex')},
 }, {
   tableName: 'users'
 });
@@ -101,41 +101,39 @@ async function register(req, res) {
     const salt = await bcrypt.genSalt();
     const hash = await bcrypt.hash(password, salt);
     const random = crypto.randomBytes(8).toString('hex');
-    const refresh = jwt.sign({random}, refresh_secret, {expiresIn: '5d'});
     const access = jwt.sign({random}, access_secret, {expiresIn: '1d'});
-    const user = await usr.create({ firstname, email, pwdhash: hash, pwdsalt: salt, atoken: access, rtoken: refresh, token_random: random });
+    const user = await usr.create({ firstname, email, pwdhash: hash, pwdsalt: salt, atoken: access});
     await user.save();
     res.status(201).cookie('jwt', refresh, {maxAge: 86400, httpOnly: true, secure: true}).json({ ok: true, token: access, expiresIn: 86400});
 }
 
-async function login(req, res){
-  // TODO: add JWT to this crap, for now just check password
-  const access = req.cookies.jwt;
-  if (access != null) {
-    res.status(409).json({ok: false, msg: 'Already logged in!', token: access});
-    return;
-  }
+async function login(req, res) {
   const return_url = req.query.return;
   const email = req.body.email;
   const password = req.body.password;
-  const user = await usr.findOne({where: {email: email}});
-  console.log(user.id);
+  const user = await usr.findOne({where: {email}});
+  const cookie_data = await checkJWT(req, user);
   if (!user) {
     res.status(404).json({ ok: false, msg: 'User does not exist' });
     return;
   }
   switch (await bcrypt.compare(password, user.pwdhash)) {
     case true:
-      const random = crypto.randomBytes(8).toString('hex');
-      const access = jwt.sign({ random }, access_secret); 
-      usr.update({atoken: access, random}, {where: {id: user.id}}).then((data)=>{console.log(data);}).catch((err)=>{console.log(err);});
-      console.log(`User ${user.id} logged in`);
-      res.status(200).cookie('jwt', access, {maxAge: 86400, httpOnly: true, secure: true}).redirect(return_url || '/profiles');
+      const cookieData = await checkJWT(req, res);
+      res.cookie(cookieData.type, cookieData.token, cookieData.meta).json({ ok: true, token: cookieData.token });
       break;
     case false:
       console.log(`User ${user.id} failed to log in, wrong password`);
       res.status(406).json({ok: false, msg: 'Email or password is incorrect'});
   }
+}
+
+async function checkJWT(req, user){
+  const random = crypto.randomBytes(8).toString('hex');
+      const access = jwt.sign({ random }, access_secret, { expiresIn: '1d' });
+      await usr.update({atoken: access, random}, {where: {id: user.id}}).then((data)=>{console.log(data);}).catch((err)=>{console.log(err);});
+      console.log(`User ${user.id} logged in`);
+      return {type: 'jwt', token: access, meta: {maxAge: 86400, httpOnly: true, secure: true}}
 }
 
 async function showAll(req, res) {
@@ -146,13 +144,13 @@ async function showAll(req, res) {
     req.query.orderby = 'ASC'; //assume ascending order by default(oldest first)
   }
   const offset = (req.query.page - 1) * 10;
-  const users = await usr.findAll({ limit: 10, offset: offset, order: [['registration_date', req.query.orderby.toUpperCase()]] });
+  const users = await usr.findAll({ limit: 10, offset: offset, order: [['registration_date', req.query.orderby.toUpperCase()]], attributes: {exclude: ['pwdhash', 'pwdsalt', 'token', 'token_random']} });
   res.status(200).json({ ok: true, result: users});
 }
 
 async function showOne(req, res) {
   const id = req.params.id;
-  const user = await usr.findOne({where: {id}});
+  const user = await usr.findOne({where: {id}, attributes: {exclude: ['pwdhash', 'pwdsalt', 'token', 'token_random']}});
   if (!user) {
     res.status(404).json({ ok: false, msg: 'User not found' });
     return;
@@ -167,4 +165,15 @@ async function showOne(req, res) {
     profile_picture: user.profile_picture
   };
   res.status(200).json({ ok: true, result: user_safe });
+}
+
+async function editUser(req, res) {
+  const email = req.body.email;
+  console.log(email);
+  const user = await usr.findOne({where: {email}});
+  console.log(user);
+  if (await checkJWT(req, user)) {
+    res.redirect('/login?return=/profile/' + req.params.id);
+    return;
+  }
 }
